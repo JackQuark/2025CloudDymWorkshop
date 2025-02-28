@@ -6,9 +6,7 @@ import xarray as xr
 
 from time import perf_counter
 # ==================================================
-
 __all__ = ['VVMDataset']
-
 # ==================================================
 
 __filedir__ = os.path.dirname(__file__)
@@ -21,28 +19,25 @@ ncPrefix_Radiation     = "L.Radiation"
 ncPrefixes = [ncPrefix_LandSurface, ncPrefix_Surface, ncPrefix_Dynamic, ncPrefix_Thermodynamic, ncPrefix_Radiation]
 ncTypes = [s.split('.')[1] for s in ncPrefixes]
 
-exps_dir  = "/data/mlcloud/mlpbl_2025/b12209017/WCD_2025/taiwanvvm_tpe"
+exps_dir  = "/data2/VVM/taiwanvvm_tpe"
 exps_name = sorted(os.listdir(exps_dir))
-exps_path = [os.path.join(exps_dir, exp_name) for exp_name in exps_name]    
+exps_path = [os.path.join(exps_dir, exp_name) for exp_name in exps_name]
 
 # ==================================================
 
 class VVMDataset(object):
-    def __init__(self, exppath: str):
-        if os.path.exists(exppath) == False:
-            raise ValueError("Experiment path not found: " + exppath)
+    def __init__(self, exp_path: str):
+        if os.path.exists(exp_path) == False:
+            raise ValueError("Experiment path not found: " + exp_path)
         
-        self.exp_name = exppath.split('/')[-1]
-        self.exp_path = exppath
-        self.archive_path = os.path.join(exppath, 'archive')
+        self.exp_name = exp_path.split('/')[-1]
+        self.exp_path = exp_path
+        self.archive_path = os.path.join(exp_path, 'archive')
         self.nc_names: list[str] = self.getname_nclistdir(self.archive_path)
         self.nc_paths: list[str] = self.getpath_nclistdir(self.archive_path)        
         
         self.Nsteps = int(self.nc_names[-1].split('-')[-1].split('.')[0])
-        print(self.Nsteps)
-        
         self._tempname()
-        
         
     def _tempname(self):
         self.nc_types = []
@@ -94,6 +89,8 @@ class VVMDataset(object):
         elif isinstance(tstep, slice):
             return self.AllThenc[sel_prefix][tstep]
         elif isinstance(tstep, list):
+            return [self.AllThenc[sel_prefix][i] for i in tstep]
+        elif isinstance(tstep, np.ndarray):
             return [self.AllThenc[sel_prefix][i] for i in tstep]
         elif tstep is None:
             return self.AllThenc[sel_prefix]
