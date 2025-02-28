@@ -51,8 +51,8 @@ class VVMDataset(object):
             current_prefix = self.nc_names[i].split('-')[0][len(self.exp_name)+1:]
             if current_prefix in ncPrefixes:
                 self.nc_types.append(current_prefix)
-                self.AllThenc[current_prefix] = self.nc_paths[i:i+self.Nsteps]           
-                i += self.Nsteps
+                self.AllThenc[current_prefix] = self.nc_paths[i:i+self.Nsteps+1]
+                i += self.Nsteps + 1
             else:
                 raise ValueError("Unknow prefix: " + current_prefix)
     
@@ -76,14 +76,14 @@ class VVMDataset(object):
         """
         sel_prefix = self._type_abbr_to_prefix(nctype)
         if not sel_prefix in self.nc_types: raise ValueError("Invalid nctype: " + nctype)
-        if step is None: step = slice(0, self.Nsteps)
+        if step is None: step = slice(0, self.Nsteps+1)
         
         if isinstance(step, int):
             return xr.open_dataset(self._getpath_selectednc(sel_prefix, step), **kwargs)
         else:
             return xr.open_mfdataset(self._getpath_selectednc(sel_prefix, step), combine='nested', concat_dim="time", **kwargs)
     
-    def _getpath_selectednc(self, sel_prefix: str, tstep: int = None):
+    def _getpath_selectednc(self, sel_prefix: str, tstep):
         if isinstance(tstep, int):
             return self.AllThenc[sel_prefix][tstep]
         elif isinstance(tstep, slice):
@@ -92,8 +92,8 @@ class VVMDataset(object):
             return [self.AllThenc[sel_prefix][i] for i in tstep]
         elif isinstance(tstep, np.ndarray):
             return [self.AllThenc[sel_prefix][i] for i in tstep]
-        elif tstep is None:
-            return self.AllThenc[sel_prefix]
+        else:
+            raise ValueError("Invalid tstep type: " + str(type(tstep)))
 
     def _type_abbr_to_prefix(self, type_abbr: str):
         """"""
@@ -138,23 +138,9 @@ class VVMDataset(object):
     
 # ==================================================
 
-
 def main():
-    ilat, ilon = 672, 480
-    idxrange   = 256
-    lon_bound  = (ilon, ilon+idxrange)
-    lat_bound  = (ilat, ilat+idxrange)
+    pass
     
-    from functools import partial
-    def _preprocess(x, lon_bnds, lat_bnds):
-        return x.isel(lon=slice(*lon_bnds), lat=slice(*lat_bnds))
-    
-    partial_func = partial(_preprocess, lon_bnds=lon_bound, lat_bnds=lat_bound)
-    
-    vvmds = VVMDataset(exps_path[0])    
-    with vvmds.open_ncdataset('lsurf', step=slice(0, 5), preprocess=partial_func) as ds_lsurf:
-        print(ds_lsurf)
-
 # ==================================================
 
 if __name__ == '__main__':
