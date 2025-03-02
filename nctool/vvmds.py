@@ -75,11 +75,17 @@ class VVMDataset(object):
         **kwargs : additional args to `xr.open_dataset` or `xr.open_mfdataset`
         """
         sel_prefix = self._type_abbr_to_prefix(nctype)
-        if not sel_prefix in self.nc_types: raise ValueError("Invalid nctype: " + nctype)
         if step is None: step = slice(0, self.Nsteps+1)
         
         if isinstance(step, int):
-            return xr.open_dataset(self._getpath_selectednc(sel_prefix, step), **kwargs)
+            if 'preprocess' in kwargs:
+                partial_func = kwargs.pop('preprocess')
+                with xr.open_dataset(self._getpath_selectednc(sel_prefix, step), **kwargs) as ds:
+                    nds = partial_func(ds)
+                return nds.isel(time=0)
+            else:
+                return xr.open_dataset(self._getpath_selectednc(sel_prefix, step), **kwargs)
+            
         else:
             return xr.open_mfdataset(self._getpath_selectednc(sel_prefix, step), combine='nested', concat_dim="time", **kwargs)
     
@@ -108,17 +114,16 @@ class VVMDataset(object):
                 return ncPrefix_Thermodynamic
             case "rad":
                 return ncPrefix_Radiation
-            case '-':
+            case _:
                 msg = (
-                    "Invalid nctype: {}\n".format(type_abbr) + 
                     "Available types:\n"
-                    "  lsurf: LandSurface\n"
-                    "  surf: Surface\n"
-                    "  dym: Dynamic\n"
-                    "  thermo: Thermodynamic\n"
-                    "  rad: Radiation"
+                    "lsurf: LandSurface / "
+                    "surf: Surface / "
+                    "dym: Dynamic / "
+                    "thermo: Thermodynamic / "
+                    "rad: Radiation"
                 )    
-                raise ValueError(msg)  
+                raise ValueError(msg)
 
     @staticmethod
     def getname_nclistdir(archive_path):
