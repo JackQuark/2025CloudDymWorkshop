@@ -70,7 +70,8 @@ class VVMDataset(object):
         step : int or slice or list, optional
             - int: select one time step
             - slice: select a range of time steps
-            - list: select a list of time steps
+            - list: select given time steps
+            - numpy.ndarray: same as above
             - None: select all time steps
         **kwargs : additional args to `xr.open_dataset` or `xr.open_mfdataset`
         """
