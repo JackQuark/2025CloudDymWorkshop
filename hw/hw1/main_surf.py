@@ -60,7 +60,7 @@ def nonlinspace(start, end, intervals, bounds):
     N   = len(intervals)
     if N != len(bounds) + 1:
         raise ValueError("len(intervals) should be len(bounds) + 1")
-   
+    
     tmp = np.concatenate(([start], bounds, [end]))
     segments = [np.arange(tmp[i], tmp[i+1], intervals[i]) for i in range(N-1)]
     segments.append(np.arange(tmp[-2], tmp[-1]+intervals[-1]/2, intervals[-1]))
@@ -130,13 +130,12 @@ def plot_sprec(sprec, lat, lon, topo=None, ax=None):
     if topo is not None:
         plot_topo(topo, lat, lon, ax=ax)
     
-    cmvalue = nonlinspace(1, 30, (1, 2.5, 5), (10, 20))
+    cmvalue = nonlinspace(2.5, 80, (2.5, 5, 10), (15, 50))
     cmcolor = ['#a0fffa','#00cdff','#0096ff',
                '#0069ff','#329600','#32ff00',
                '#ffff00','#ffc800','#ff9600',
                '#ff0000','#c80000','#a00000',
                '#96009b','#c800d2','#ff00f5',]
-    
     cmap = mplc.ListedColormap(cmcolor).with_extremes(under='none', over='#ffc8ff')
     norm = mplc.BoundaryNorm(cmvalue, cmap.N)
     
@@ -162,7 +161,7 @@ def plot_sprec(sprec, lat, lon, topo=None, ax=None):
     ax.set_aspect('equal')
     return ax
 
-def plot_dym(u, v, lon, lat, skip: int = 5, boundaries="city", ax=None, **kwargs):
+def plot_dym(u, v, lon, lat, skip: int = 7, boundaries="city", ax=None, **kwargs):
     if ax is None:
         fig, ax = plt.subplots(1, 1, figsize=(6, 6))
         
@@ -174,14 +173,41 @@ def plot_dym(u, v, lon, lat, skip: int = 5, boundaries="city", ax=None, **kwargs
     ax.set_aspect('equal')
     _skip = slice(None, None, skip)
     Q = ax.quiver(lon[_skip], lat[_skip], u[_skip, _skip], v[_skip, _skip], 
-                  units='width', scale=120, 
+                  units = 'width', 
                   color='k', alpha=0.6, zorder=10)
-    qk = ax.quiverkey(Q, .95, 1.05, 5, r'$5m/s$', coordinates='axes',
+    qk = ax.quiverkey(Q, .95, 1.05, 10, r'$10m/s$', coordinates='axes',
                       labelpos='E', fontproperties={'size': 10})
     
     ax.set_xlim(lon.min(), lon.max())
     ax.set_ylim(lat.min(), lat.max())
     return ax
+
+def plot_temp(temp, lon, lat, topo, ax=None, boundaries="city", cbar=True):
+    if ax is None:
+        fig, ax = plt.subplots(1, 1, figsize=(6, 6))
+        ax.set_facecolor('whitesmoke')
+        ax.set_aspect('equal')
+        ax.set_ylabel("Latitude")
+
+    _plot_boundaries(ax, boundaries=boundaries)
+    plot_topo(topo, lat, lon, ax=ax, cbar=False, fill=False)
+    
+    CS = ax.pcolormesh(lon, lat, temp, cmap='coolwarm', vmin=292, vmax=305, alpha=0.8, zorder=1)
+    
+    if cbar:
+        axins = inset_axes(
+            ax,
+            width="2.5%",
+            height="45%",
+            loc="lower left",
+            bbox_to_anchor=(1.05, 0.25, 1, 1),
+            bbox_transform=ax.transAxes,
+            borderpad=.5,
+        )
+        cbar = plt.colorbar(CS, cax=axins, shrink=0.5, label="Temperature [K]")
+        cbar.ax.yaxis.set_label_position('left')
+    ax.set_xlim(lon.min(), lon.max())
+    ax.set_ylim(lat.min(), lat.max())
 
 # ==================================================
 
@@ -207,60 +233,78 @@ def main():
     sel_case  = "tpe20110802nor"
     isel_case = exps_name.index(sel_case)
     exp_path  = exps_path[isel_case]
-    sel_step  = slice(60, 109)
+    sel_step  = slice(60, 108)
     
     ds = vvmds.VVMDataset(exp_path)
     with ds.open_ncdataset('surf', step=sel_step, preprocess=partial_func) as ds_surf:
-        hourly_sprec = ds_surf.variables['sprec'] * 600
+        hourly_sprec = np.sum(ds_surf.variables['sprec'].to_numpy().reshape(6, -1, region_range+1, region_range+1), axis=0) * 600
 
     with ds.open_ncdataset('dym', step=sel_step, preprocess=partial_func) as ds_dym:
         _condition = np.logical_and(topo>0, topo<10)
         u = ds_dym['u'].isel(lev=xr.DataArray(topo+1, dims=('lat', 'lon'))).where(_condition, np.nan)
         v = ds_dym['v'].isel(lev=xr.DataArray(topo+1, dims=('lat', 'lon'))).where(_condition, np.nan)
+        # u = np.sum(np.reshape(u, (6, -1, region_range+1, region_range+1)), axis=0)
+        # v = np.sum(np.reshape(v, (6, -1, region_range+1, region_range+1)), axis=0)
 
+    with ds.open_ncdataset('thermo', step=sel_step, preprocess=partial_func) as ds_thermo:
+        th = ds_thermo['th'].isel(lev=xr.DataArray(topo, dims=('lat', 'lon'))).where(topo>0, np.nan)
+ 
+    central_lon, central_lat = obs_spots['Wu']
+    _p_zc = p_zc[:, None, None] * np.ones((p_zc.size, len(lat), len(lon)))
+    _p_zc = _p_zc[topo, np.arange(len(lat))[:, None], np.arange(len(lon))]
+    temp = calc_temp(th, _p_zc[None, ...])
+ 
     print("data loading complete.")
 
-    fig, ax = plt.subplots(1, 1, figsize=(7, 6)) 
+    print(type(u))
+    print(type(temp))
+
+    fig, axs = plt.subplots(1, 2, figsize=(12, 6), sharex=True, sharey=True) 
     fig.subplots_adjust(wspace=0.25)
     title = fig.suptitle(f"", fontsize=14, y=0.925)
-    plot_dym(u[0], v[0], lon, lat, ax=ax)
-    plot_sprec(hourly_sprec[0], lat, lon, topo=topo, ax=ax)
+    plot_temp(temp[12], lon, lat, topo, ax=axs[0], boundaries="city")
+    plot_dym(u[0], v[0], lon, lat, ax=axs[1])
+    plot_sprec(hourly_sprec[0], lat, lon, topo=topo, ax=axs[1])
 
-    ax.set_facecolor('whitesmoke')
-    _plot_boundaries(ax, boundaries="city")
-    ax.set_aspect('equal')
-    ax.set_xlabel("Longitude")
-    ax.set_ylabel("Latitude")
+    for ax in axs:
+        ax.set_facecolor('whitesmoke')
+        _plot_boundaries(ax, boundaries="city")
+        ax.set_aspect('equal')
+        ax.set_xlabel("Longitude")
+        if ax.get_subplotspec().is_first_col():
+            ax.set_ylabel("Latitude")
+    axs[0].set_title(f"near surface temperature", loc='left')
+    axs[1].set_title(f"near surface wind / hourly sprec", loc='left')
+    return
     # for artist in axs[0].collections:
     #     print(artist.__class__)
-    _skip = slice(None, None, 5)
+    _skip = slice(None, None, 7)
     def _update_sprec(i):
         print(f"{i}", end='\r')
-        ax.set_title(f"{sel_case}, @ LST {i//6 + 10}:{i%6*10:02d}\nnear surface wind / sprec per 10mins", loc='left')
-        ax.collections[0].set_UVC(u[i, _skip, _skip], v[i, _skip, _skip])
-        ax.collections[-2].set_array(hourly_sprec[i]) 
+        title.set_text(f"{sel_case} @ LST {i+9}:00")
+        axs[0].collections[-2].set_array(temp[i*6])
+        axs[1].collections[0].set_UVC(u[i*6, _skip, _skip], v[i*6, _skip, _skip])
+        axs[1].collections[-2].set_array(hourly_sprec[i]) 
 
     anim = FuncAnimation(fig, _update_sprec, frames=hourly_sprec.shape[0])
     writer = FFMpegWriter(fps=5)
-    anim.save(genofname(f"{sel_case}.sprec_wind.mp4"), writer=writer)
+    anim.save(f"{sel_case}.sprec_wind_temp.mp4", writer=writer)
     
-# ==================================================
+    # for i in range(len(exps_path)):
+    #     print(f"processing {exps_name[i]}", end='\r')
+        
+    #     ds = vvmds.VVMDataset(exps_path[i])
+    #     with ds.open_ncdataset('surf', step=None, preprocess=partial_func) as ds_surf:
+    #         day_totsprec = np.sum(ds_surf.sprec, axis=0) * 600
+    #     del ds
 
-def genofname(ofname, subdir=None):
-    """Generate output filename with automatic numbering to avoid overwriting\n
-    ## DO NOT add /"""
-    i = 0
-    pwd_dir = os.getcwd() + "/"
-    if subdir is not None:
-        ofname  = subdir + "/" + ofname
-    tmp  = ofname.split(".") # name . extension
-    ofname = pwd_dir + ofname # -> absolute path
+    #     fig, ax = plot_sprec(day_totsprec, lat, lon, topo=topo)
+    #     ax.set_title(f"{exps_name[i].split('.')[0]}\ndaily total sprec (mm/day)", loc='left')
+
+    #     fig.savefig(os.path.join(__filedir__, f"sprec/daily_totsprec/{exps_name[i].split('.')[0]}.png"))
+    #     fig.clear()
+    #     plt.close(fig)
     
-    while(os.path.exists(ofname)):
-        i += 1
-        ofname = pwd_dir + ".".join(tmp[:-1]) + f"({i})." + tmp[-1]    
-    return ofname
-
 # ==================================================
 from time import perf_counter
 

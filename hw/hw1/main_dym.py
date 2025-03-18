@@ -139,28 +139,31 @@ def main():
 
     partial_func = partial(_preprocess, lon_bnds=isel_lon, lat_bnds=isel_lat)
 
-    with xr.open_dataset(topo_fpath) as ds_topo:
-        ds_topo = partial_func(ds_topo)
-        topo = ds_topo.topo.values.astype(int)
+    # with xr.open_dataset(topo_fpath) as ds_topo:
+    #     ds_topo = partial_func(ds_topo)
+    #     topo = ds_topo.topo.values.astype(int)
         
-        lat  = ds_topo.lat
-        lon  = ds_topo.lon
+    #     lat  = ds_topo.lat
+    #     lon  = ds_topo.lon
 
-    fig, ax = plot_topo(topo, lat, lon)
-    plot_obsspot(ax, legend=True)
+    # fig, ax = plot_topo(topo, lat, lon)
+    # plot_obsspot(ax, legend=True)
     
-    return 
+    # return 
 
     ds = vvmds.VVMDataset(exps_path[0])    
     # return
-    with ds.open_ncdataset('dym', step=72, preprocess=partial_func) as ds_dym:
-        zc = ds_dym.zc
-        u = ds_dym.u
-        v = ds_dym.v
+    with ds.open_ncdataset('dym', step=None, preprocess=partial_func) as ds_dym:
+        u: xr.DataArray = ds_dym.u
+        v: xr.DataArray = ds_dym.v
 
+    for i in range(1, len(exps_path)):
+        
+
+    return 
     # sel. the topo+1 level
-    ambient_idx = np.where(np.logical_and(topo > 0, topo <= 10), topo, 0)    
-    u = u[ambient_idx, np.arange(lat.size)[:, None], np.arange(lon.size)[:]]
+    # ambient_idx = np.where(np.logical_and(topo > 0, topo <= 10), topo, 0)    
+    # u = u[ambient_idx, np.arange(lat.size)[:, None], np.arange(lon.size)[:]]p
     v = v[ambient_idx, np.arange(lat.size)[:, None], np.arange(lon.size)[:]]
     u = np.where(ambient_idx == 0, np.nan, u)
 
