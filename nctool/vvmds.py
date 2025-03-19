@@ -11,6 +11,7 @@ __all__ = ['VVMDataset']
 
 __filedir__ = os.path.dirname(__file__)
 
+ncPrefix_Radar         = "p3_diagnostic"
 ncPrefix_LandSurface   = "C.LandSurface"
 ncPrefix_Surface       = "C.Surface"
 ncPrefix_Dynamic       = "L.Dynamic"
@@ -38,7 +39,7 @@ class VVMDataset(object):
         
         self.Nsteps = int(self.nc_names[-1].split('-')[-1].split('.')[0])
         self._tempname()
-        
+                
     def _tempname(self):
         self.nc_types = []
         self.AllThenc = {}        
@@ -48,20 +49,26 @@ class VVMDataset(object):
             if i >= tot_Nfiles:
                 break
             
-            current_prefix = self.nc_names[i].split('-')[0][len(self.exp_name)+1:]
-            if current_prefix in ncPrefixes:
-                self.nc_types.append(current_prefix)
-                self.AllThenc[current_prefix] = self.nc_paths[i:i+self.Nsteps+1]
+            if self.nc_names[i].startswith("p3"):
+                self.nc_types.append(ncPrefix_Radar)
+                self.AllThenc[ncPrefix_Radar] = self.nc_paths[i:i+self.Nsteps+1]
                 i += self.Nsteps + 1
             else:
-                raise ValueError("Unknow prefix: " + current_prefix)
+                current_prefix = self.nc_names[i].split('-')[0][len(self.exp_name)+1:]            
+                if current_prefix in ncPrefixes:
+                    self.nc_types.append(current_prefix)
+                    self.AllThenc[current_prefix] = self.nc_paths[i:i+self.Nsteps+1]
+                    i += self.Nsteps + 1
+                else:
+                    raise ValueError("Unknow prefix: " + current_prefix)
     
-    def open_ncdataset(self, nctype: str, step: int = None, **kwargs):
+    def open_ncdataset(self, nctype: str, step: int = None, **kwargs) -> xr.Dataset:
         """open VVM nc file as xarray dataset\n
         **kwargs: additional args to `xr.open_dataset` or `xr.open_mfdataset`\n
         Parameters
         ----------
         nctype : str
+            - "radar": p3_diagnostic
             - "lsurf": LandSurface
             - "surf": Surface
             - "dym": Dynamic
@@ -105,6 +112,8 @@ class VVMDataset(object):
     def _type_abbr_to_prefix(self, type_abbr: str):
         """"""
         match type_abbr:
+            case "radar":
+                return ncPrefix_Radar
             case "lsurf":
                 return ncPrefix_LandSurface
             case "surf":
@@ -118,12 +127,13 @@ class VVMDataset(object):
             case _:
                 msg = (
                     "Available types:\n"
+                    "radar"
                     "lsurf: LandSurface / "
                     "surf: Surface / "
                     "dym: Dynamic / "
                     "thermo: Thermodynamic / "
                     "rad: Radiation"
-                )    
+                )
                 raise ValueError(msg)
 
     @staticmethod
@@ -145,6 +155,10 @@ class VVMDataset(object):
 # ==================================================
 
 def main():
+    ds = VVMDataset("/data/mlcloud/mlpbl_2025/b12209017/2025CDW/taiwanvvm_tpe/tpe20050702nor")
+
+    with ds.open_ncdataset("radar", 0) as ds_radar:
+        print(ds_radar)        
     pass
     
 # ==================================================
