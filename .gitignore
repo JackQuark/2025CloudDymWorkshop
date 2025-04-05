@@ -14,3 +14,5 @@ hw/hw3/data/Azimuth.dat
 hw/hw3/data/DBZ.dat
 hw/hw3/data/Elevation.dat
 hw/hw3/data/Range.dat
+cr1000
+hw/hw3/plots
