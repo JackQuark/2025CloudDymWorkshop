@@ -158,7 +158,7 @@ def main():
     ds = VVMDataset("/data/mlcloud/mlpbl_2025/b12209017/2025CDW/taiwanvvm_tpe/tpe20050702nor")
 
     with ds.open_ncdataset("radar", 0) as ds_radar:
-        print(ds_radar)        
+        print(ds_radar.variables.keys())
     pass
     
 # ==================================================
