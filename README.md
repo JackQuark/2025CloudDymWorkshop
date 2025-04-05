@@ -1,4 +1,4 @@
-# WXT cr1000 dataset
+# 2025CDW WXT dataset
 
 ### how to load
 use `git clone` or directly download the file: **CR1000_2_Data1min.dat**
