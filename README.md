@@ -1,7 +1,7 @@
 # WXT cr1000 dataset
 
 ### how to load
-use `git clone` or directly download the file: *CR1000_2_Data1min.dat*
+use `git clone` or directly download the file: **CR1000_2_Data1min.dat**
 
 e.g.
 ```python
